@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕵️‍♂️ 라이어 게임 (하드코어 모드)</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            color: #333;
+            margin-top: 50px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+        h1 { color: #2c3e50; }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #3498db;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+        }
+        button:hover { background-color: #2980b9; }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            width: 80%;
+            margin-top: 10px;
+            text-align: center;
+        }
+        #secret-word {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 30px 20px;
+            background-color: #fceceb;
+            border-radius: 10px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🕵️‍♂️ 라이어 게임</h1>
+
+        <div id="setup-screen">
+            <p>참가자 수를 입력하세요 (3~8명):</p>
+            <input type="number" id="player-count" min="3" max="8" value="4">
+            <button onclick="startGame()">게임 시작</button>
+        </div>
+
+        <div id="check-screen" class="hidden">
+            <h2 id="turn-display">1번째 플레이어</h2>
+            <p>❗ 주위에 다른 사람이 없는지 확인하세요!</p>
+            <button onclick="showWord()" id="show-btn">나의 단어 확인하기</button>
+            
+            <div id="word-display" class="hidden">
+                <div id="secret-word"></div>
+                <button onclick="nextPlayer()" style="background-color: #2ecc71;">확인 완료 (다음 사람에게 넘기기)</button>
+            </div>
+        </div>
+
+        <div id="play-screen" class="hidden">
+            <h2>🎉 모두 확인이 끝났습니다!</h2>
+            <p>이제 1번 플레이어부터 순서대로 자신의 단어에 대해 한 마디씩 설명하세요.</p>
+            <p>설명이 끝나면 투표를 통해 다른 단어를 가진 '라이어'를 찾아내세요!</p>
+            <button onclick="location.reload()" style="background-color: #f39c12;">새 게임하기</button>
+        </div>
+    </div>
+
+    <script>
+        // 총 50개의 단어 짝꿍 리스트
+        const wordPairs = [
+            // 음식 & 음료 (10)
+            { normal: "짜장면", liar: "짬뽕" },
+            { normal: "콜라", liar: "사이다" },
+            { normal: "치킨", liar: "피자" },
+            { normal: "햄버거", liar: "샌드위치" },
+            { normal: "라면", liar: "우동" },
+            { normal: "김치찌개", liar: "된장찌개" },
+            { normal: "아메리카노", liar: "카페라떼" },
+            { normal: "초콜릿", liar: "사탕" },
+            { normal: "아이스크림", liar: "빙수" },
+            { normal: "떡볶이", liar: "마라탕" },
+
+            // 동물 (10)
+            { normal: "강아지", liar: "고양이" },
+            { normal: "사자", liar: "호랑이" },
+            { normal: "토끼", liar: "다람쥐" },
+            { normal: "독수리", liar: "부엉이" },
+            { normal: "상어", liar: "고래" },
+            { normal: "악어", liar: "하마" },
+            { normal: "펭귄", liar: "타조" },
+            { normal: "모기", liar: "파리" },
+            { normal: "거북이", liar: "자라" },
+            { normal: "소", liar: "돼지" },
+
+            // 사물 & 기기 (10)
+            { normal: "스마트폰", liar: "태블릿" },
+            { normal: "노트북", liar: "데스크탑" },
+            { normal: "이어폰", liar: "헤드폰" },
+            { normal: "마우스", liar: "키보드" },
+            { normal: "연필", liar: "샤프" },
+            { normal: "지우개", liar: "수정테이프" },
+            { normal: "안경", liar: "렌즈" },
+            { normal: "가방", liar: "지갑" },
+            { normal: "시계", liar: "팔찌" },
+            { normal: "침대", liar: "소파" },
+
+            // 장소 (10)
+            { normal: "학교", liar: "학원" },
+            { normal: "바다", liar: "산" },
+            { normal: "영화관", liar: "미술관" },
+            { normal: "놀이공원", liar: "워터파크" },
+            { normal: "편의점", liar: "마트" },
+            { normal: "카페", liar: "식당" },
+            { normal: "도서관", liar: "서점" },
+            { normal: "경찰서", liar: "소방서" },
+            { normal: "병원", liar: "약국" },
+            { normal: "화장실", liar: "샤워실" },
+
+            // 기타 (스포츠, 직업, 자연 등) (10)
+            { normal: "축구", liar: "농구" },
+            { normal: "야구", liar: "배구" },
+            { normal: "피아노", liar: "기타(악기)" },
+            { normal: "태양", liar: "달" },
+            { normal: "비", liar: "눈" },
+            { normal: "의사", liar: "간호사" },
+            { normal: "선생님", liar: "학생" },
+            { normal: "유튜버", liar: "연예인" },
+            { normal: "버스", liar: "지하철" },
+            { normal: "택시", liar: "기차" }
+        ];
+        
+        let playerCount = 0;
+        let currentPlayer = 1;
+        let liarIndex = 0;
+        
+        let normalWord = "";
+        let liarWord = "";
+
+        function startGame() {
+            const countInput = document.getElementById('player-count').value;
+            playerCount = parseInt(countInput);
+
+            if (playerCount < 3 || playerCount > 8) {
+                alert("참가자는 3명에서 8명 사이여야 합니다.");
+                return;
+            }
+
+            // 랜덤으로 라이어 순서 지정
+            liarIndex = Math.floor(Math.random() * playerCount) + 1;
+            
+            // 랜덤으로 단어 세트 선정
+            const randomPair = wordPairs[Math.floor(Math.random() * wordPairs.length)];
+
+            // 누가 라이어 단어를 가질지 매번 고정되지 않게 50% 확률로 섞기
+            if (Math.random() > 0.5) {
+                normalWord = randomPair.normal;
+                liarWord = randomPair.liar;
+            } else {
+                normalWord = randomPair.liar;
+                liarWord = randomPair.normal;
+            }
+
+            // 화면 전환
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('check-screen').classList.remove('hidden');
+            updateTurnDisplay();
+        }
+
+        function updateTurnDisplay() {
+            document.getElementById('turn-display').innerText = currentPlayer + "번째 플레이어";
+            document.getElementById('show-btn').classList.remove('hidden');
+            document.getElementById('word-display').classList.add('hidden');
+        }
+
+        function showWord() {
+            document.getElementById('show-btn').classList.add('hidden');
+            document.getElementById('word-display').classList.remove('hidden');
+
+            const wordEl = document.getElementById('secret-word');
+            
+            if (currentPlayer === liarIndex) {
+                wordEl.innerHTML = `당신의 단어: <br><br> <span style="font-size: 32px; color: #c0392b;">${liarWord}</span>`;
+            } else {
+                wordEl.innerHTML = `당신의 단어: <br><br> <span style="font-size: 32px; color: #2980b9;">${normalWord}</span>`;
+            }
+        }
+
+        function nextPlayer() {
+            currentPlayer++;
+            if (currentPlayer > playerCount) {
+                // 모든 플레이어가 확인 완료
+                document.getElementById('check-screen').classList.add('hidden');
+                document.getElementById('play-screen').classList.remove('hidden');
+            } else {
+                // 다음 플레이어로 세팅
+                updateTurnDisplay();
+            }
+        }
+    </script>
+</body>
+</html>
+
